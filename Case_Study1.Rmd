@@ -2,7 +2,9 @@
 title: "Case_Study1"
 author: "Emre Can Çamcı"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+  html_document : default
+  pdf_document : default
 ---
 
 ## Ask Phase
@@ -286,4 +288,4 @@ After the analysis:
 
 * A discount campaign can be launched for membership in the summer since the casual usage rate increases.
 
-* 
+* Discount coupons can be issued according to the length of their trips.

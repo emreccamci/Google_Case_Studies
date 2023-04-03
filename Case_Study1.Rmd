@@ -1,0 +1,289 @@
+---
+title: "Case_Study1"
+author: "Emre Can Çamcı"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Ask Phase
+
+-   Business task is to understand how annual members and casual riders use Cyclistic bikes differently
+
+## Prepare Phase
+
+-   To analyze the yearly trips from 2022 data has been downloaded from this [link](https://divvy-tripdata.s3.amazonaws.com/index.html) and has been made available by Motivate International Inc. under this [licence](https://ride.divvybikes.com/data-license-agreement).
+
+## Process Phase
+
+Data will contain millions of rows and to process faster I used R.
+
+#### Importing data to R
+
+-   Loading libraries
+
+```{r libraries, warning=FALSE, include=FALSE}
+library(tidyverse) # For data import & wrangling
+library(lubridate) # For date functions
+library(scales)    # For better visualizations
+
+```
+
+-   Importing the cyclist data of 2022
+
+```{r monthly data, warning=FALSE}
+jan_2022 <- read.csv("202201-divvy-tripdata.csv")
+feb_2022 <- read.csv("202202-divvy-tripdata.csv")
+mar_2022 <- read.csv("202203-divvy-tripdata.csv")
+apr_2022 <- read.csv("202204-divvy-tripdata.csv")
+may_2022 <- read.csv("202205-divvy-tripdata.csv")
+jun_2022 <- read.csv("202206-divvy-tripdata.csv")
+jul_2022 <- read.csv("202207-divvy-tripdata.csv")
+aug_2022 <- read.csv("202208-divvy-tripdata.csv")
+sep_2022 <- read.csv("202209-divvy-publictripdata.csv")
+oct_2022 <- read.csv("202210-divvy-tripdata.csv")
+nov_2022 <- read.csv("202211-divvy-tripdata.csv")
+dec_2022 <- read.csv("202212-divvy-tripdata.csv")
+
+```
+
+-   Comparing column names of each data to check if they match perfectly before joining them into a data frame.
+
+```{r column name check, warning=FALSE, include=FALSE}
+colnames(jan_2022)
+colnames(feb_2022)
+colnames(mar_2022)
+colnames(apr_2022)
+colnames(may_2022)
+colnames(jun_2022)
+colnames(jul_2022)
+colnames(aug_2022)
+colnames(sep_2022)
+colnames(oct_2022)
+colnames(nov_2022)
+colnames(dec_2022)
+
+```
+
+-   Creating the data frame with the monthly data.
+
+```{r dataframe, warning=FALSE, include=FALSE}
+yearly_trips <- bind_rows(jan_2022,feb_2022,mar_2022,apr_2022,may_2022,jun_2022,
+                        jul_2022,aug_2022,sep_2022,oct_2022, nov_2022,dec_2022)
+
+```
+
+-   Dropping columns which will not be used
+
+```{r column drop, warning=FALSE, include=FALSE}
+yearly_trips <- yearly_trips %>% 
+  select(-c(start_lat,start_lng,end_lat,end_lng))
+```
+
+-   Checking the new data frame.
+
+```{r dataframe check, warning=FALSE, include=FALSE}
+colnames(yearly_trips) # List of column names
+nrow(yearly_trips) # Row number in data frame
+head(yearly_trips, 10) # To see the first 10 row of data frame
+tail(yearly_trips, 10) # To see the last 10 row of data frame
+str(yearly_trips) # List of columns and data types
+summary(yearly_trips) #Statistical summary of data
+
+```
+
+## Analyze Phase
+
+-   To further analyze the data adding date, weekday, month, and a ride length column.
+
+```{r column add}
+#Adding a ride length column to analyze the duration of the rides in seconds
+yearly_trips$ride_length <- difftime(yearly_trips$ended_at,yearly_trips$started_at)
+yearly_trips$date <- as.Date(yearly_trips$started_at)
+yearly_trips$month <- format(as.Date(yearly_trips$date), "%m")
+yearly_trips$day_of_week <- format(as.Date(yearly_trips$date), "%A")
+```
+
+-   Checking the created column
+
+```{r ride_length check}
+str(yearly_trips)
+head(yearly_trips, 10)
+tail(yearly_trips, 10)
+summary(yearly_trips)
+```
+
+-   Converting c(ride_length) to numeric so calculations can be executed.
+
+```{r ride_lenght format}
+yearly_trips$ride_length <- as.numeric(as.character(yearly_trips$ride_length))
+is.numeric(yearly_trips$ride_length) # To check the class of column
+summary(yearly_trips)
+```
+
+-   After checking summary, c(ride_length) has some negative values and has to be excluded.
+
+```{r remove negative values}
+yearly_trips_v2 <- subset(yearly_trips, yearly_trips$ride_length >0)
+summary(yearly_trips_v2)
+```
+
+#### Organizing Data
+
+-   Reordering and dropping the columns to understand data easier
+
+```{r organizing}
+#Removing columns which will not be use to analyze
+yearly_trips <- yearly_trips %>% 
+  select(-c(started_at,ended_at,start_station_name,start_station_id,
+            end_station_name,end_station_id))
+#Reordering columns
+colnames(yearly_trips)
+col_order <- c("ride_id", "rideable_type","date", "day_of_week","month","ride_length","member_casual")
+yearly_trips_v3 <- yearly_trips_v2[, col_order]
+```
+
+-   Converting c(ride_length) to minutes
+
+```{r sec to min}
+yearly_trips_v3$ride_length <- yearly_trips_v3$ride_length /60
+```
+
+#### Analyzing the data
+
+To understand how the member and casuals use bikes differently checking:
+
+* Ride duration
+* Number of rides
+
+
+##### Ride duration
+
+* First a descriptive analysis on ride duration.
+
+```{r des analysis}
+yearly_trips_v3 %>% 
+  summarise(min(ride_length),mean(ride_length),max(ride_length))
+```
+
+We can see that average ride length is 19.4 minutes per rider.
+
+* Comparing members and casual users monthly average ride duration.
+
+```{r monthly avg duration, message=FALSE}
+yearly_trips_v3 %>% 
+  group_by(member_casual, month) %>% 
+  summarise(number_of_rides = n(), average_duration=mean(ride_length)) %>% 
+  arrange(member_casual,month) %>% 
+  ggplot(aes(x=month, y=average_duration, fill= member_casual))+
+  geom_col(position = "dodge")+
+  geom_hline(yintercept = 19.4)+
+  xlab("Months")+
+  scale_x_discrete(labels = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug",
+                              "Sep","Oct","Nov","Dec"))+
+  ylab("Average duration(min)")+
+  labs(title = "Monthly average ride duration in minutes" , fill ="Rider Type")
+```
+
+The plot shows that casuals tends to ride longer than members, and members ride duration is below average ride duration.
+
+* If we look at weekly average ride duration
+
+```{r weekly avg duration, message=FALSE}
+yearly_trips_v3 %>% 
+  group_by(member_casual, day_of_week) %>% 
+  summarise(number_of_rides = n(), average_duration=mean(ride_length)) %>% 
+  arrange(member_casual,day_of_week) %>% 
+  ggplot(aes(x=day_of_week, y=average_duration, fill= member_casual))+
+  geom_col(position = "dodge")+
+  geom_hline(yintercept = 19.4)+
+  xlab("Weekday")+
+  ylab("Average duration(min)")+
+  labs(title = "Weekly average ride duration in minutes" , fill ="Rider Type")
+```
+
+Days aren't ordered to fix it
+
+```{r day order}
+yearly_trips_v3$day_of_week <- ordered(yearly_trips_v3$day_of_week, levels= 
+                                         c("Monday","Tuesday", "Wednesday", 
+                                           "Thursday", "Friday", "Saturday",
+                                           "Sunday"))
+```
+
+After fixing it
+
+```{r weekly avg duration2, message=FALSE}
+yearly_trips_v3 %>% 
+  group_by(member_casual, day_of_week) %>% 
+  summarise(number_of_rides = n(), average_duration=mean(ride_length)) %>% 
+  arrange(member_casual,day_of_week) %>% 
+  ggplot(aes(x=day_of_week, y=average_duration, fill= member_casual))+
+  geom_col(position = "dodge")+
+  geom_hline(yintercept = 19.4)+
+  xlab("Weekday")+
+  ylab("Average duration(min)")+
+  labs(title = "Weekly average ride duration in minutes" , fill ="Rider Type")
+```
+
+##### Number of rides
+
+* Lets look at yearly trips.
+
+```{r yearly trips}
+yearly_trips_v3 %>% 
+  summarise(number_of_rides = n())
+
+```
+
+This year total of 5.667.186 trips made by our members and casuals.
+
+* If we look at our monthly trips.
+
+```{r monthly rides vis, message=FALSE}
+yearly_trips_v3 %>% 
+  group_by(month, member_casual) %>% 
+  summarise(number_of_rides = n()) %>% 
+  ggplot(aes(x=month,y=number_of_rides, fill=member_casual))+
+  geom_col(position = "dodge")+
+  xlab("Month")+
+  scale_x_discrete(labels = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug",
+                              "Sep","Oct","Nov","Dec"))+
+  ylab("Number of rides")+
+  scale_y_continuous(labels = comma)+
+  labs(title="Monthly rides by rider type", fill= "Rider Type")
+
+```
+
+From the plot we can see that casuals tends to rent more bike in summer.
+
+* If we look at weekly trips.
+
+```{r weekly rides vis, message=FALSE}
+yearly_trips_v3 %>% 
+  group_by(day_of_week, member_casual) %>% 
+  summarise(rider_count = n()) %>% 
+  ggplot(aes(x=day_of_week,y=rider_count, fill=member_casual))+
+  geom_col(position = "dodge")+
+  xlab("Weekdays")+
+  ylab("Number of rides")+
+  scale_y_continuous(labels = comma, breaks = seq(0,500000, by =100000))+
+  labs(title="Weekly rides by rider type", fill= "Rider Type")
+```
+
+In contrast to ride duration our members rent more bike and casual rent more bike at weekends.
+
+## Share Phase
+
+After the analysis:
+
+* Casuals ride longer than members.
+
+* Members rent more bike than casuals.
+
+* Casuals tend to rent more bike in summer and weekends.
+
+## Recommendations
+
+* A discount campaign can be launched for membership in the summer since the casual usage rate increases.
+
+* 
